@@ -100,6 +100,9 @@ def main(model_cfg: GPTConfig | None = None, train_cfg: TrainConfig | None = Non
     out_dir = Path(train_cfg.out_dir); out_dir.mkdir(exist_ok=True)
     tokenizer.save(out_dir / "tokenizer.json")
 
+    history = {"step": [], "train_loss": [], "val_loss": []}
+    batch_losses = []
+
     train_iter = iter(train_loader)
     t0 = time.time()
     for it in range(train_cfg.max_iters):
@@ -120,6 +123,7 @@ def main(model_cfg: GPTConfig | None = None, train_cfg: TrainConfig | None = Non
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), train_cfg.grad_clip)
         optim.step()
+        batch_losses.append(loss.item())
 
         if it % train_cfg.log_interval == 0:
             print(f"iter {it:5d}  loss={loss.item():.4f}  lr={lr:.2e}")
@@ -129,6 +133,9 @@ def main(model_cfg: GPTConfig | None = None, train_cfg: TrainConfig | None = Non
                 model, {"train": train_loader, "val": val_loader},
                 train_cfg.eval_iters, device,
             )
+            history["step"].append(it)
+            history["train_loss"].append(stats["train"])
+            history["val_loss"].append(stats["val"])
             dt = time.time() - t0
             print(f"  [eval @ iter {it}] train={stats['train']:.4f}  "
                   f"val={stats['val']:.4f}  ({dt:.1f}s)")
@@ -146,6 +153,47 @@ def main(model_cfg: GPTConfig | None = None, train_cfg: TrainConfig | None = Non
                 "train_cfg": train_cfg.__dict__},
                out_dir / "ckpt.pt")
     print(f"saved checkpoint -> {out_dir / 'ckpt.pt'}")
+
+    # save loss history JSON + plot (matplotlib optional)
+    import json
+    (out_dir / "history.json").write_text(json.dumps(
+        {"batch_losses": batch_losses, "eval": history}))
+    _save_loss_plot(batch_losses, history, out_dir, model_cfg.model_name)
+
+
+def _save_loss_plot(batch_losses, history, out_dir, model_name):
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        import numpy as np
+    except ImportError:
+        print("matplotlib not installed -- skipping loss plot")
+        return
+
+    plt.figure(figsize=(8, 4))
+    plt.plot(batch_losses, alpha=0.2, color="#6366f1", linewidth=0.5,
+             label="batch loss")
+    window = max(1, len(batch_losses) // 50)
+    if window > 1:
+        smoothed = np.convolve(batch_losses, np.ones(window) / window, mode="valid")
+        plt.plot(np.arange(window - 1, window - 1 + len(smoothed)), smoothed,
+                 color="#6366f1", linewidth=2, label="smoothed train")
+    if history["step"]:
+        plt.plot(history["step"], history["val_loss"],
+                 "s--", color="#f43f5e", linewidth=2, markersize=6,
+                 label="val (eval)")
+    # uniform-prediction baseline (entropy of uniform over vocab)
+    plt.xlabel("Iteration")
+    plt.ylabel("Cross-Entropy Loss")
+    plt.title(f"Training Loss — tiny-gpt {model_name}")
+    plt.legend()
+    plt.grid(alpha=0.2)
+    plt.tight_layout()
+    out_path = out_dir / "loss_curve.png"
+    plt.savefig(out_path, dpi=150)
+    plt.close()
+    print(f"saved {out_path}")
 
 
 if __name__ == "__main__":
