@@ -1,0 +1,4 @@
+# CPU-only torch is fine for development; install with:
+#   pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+torch>=2.0
+numpy>=1.24

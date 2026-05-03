@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# data + checkpoints
+data/
+out/
+*.pt
+*.ckpt
+
+# editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
