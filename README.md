@@ -2,6 +2,7 @@
 
 A from-scratch GPT implementation in PyTorch, with ablation studies. **Work in progress** — see roadmap below.
 
+[![tests](https://github.com/Vishnu1837/tiny-gpt/actions/workflows/test.yml/badge.svg)](https://github.com/Vishnu1837/tiny-gpt/actions/workflows/test.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 > **Status: Week 1 of 6 — bigram baseline ✅**
